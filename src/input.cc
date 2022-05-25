@@ -1,68 +1,227 @@
-#include "input.h"
+#include "input.hh"
+
+#include "error.hh"
 
 #include <assert.h>
 #include <sqlite3.h>
-#include <string.h>
+#include <string>
 #include <stdlib.h>
 #include <stdio.h>
+#include <unordered_map>
 
-#define SWMM_MAX_IO 5
+using namespace std;
 
-int nIO = 1;
+namespace swmm
+{
 
-extern swmm6_io_module swmmSqliteIO;
+template<>
+int InputCursor::read(int col)
+{
+  return readInt(col);
+}
 
-swmm6_io_module* vIO[SWMM_MAX_IO] = {
-  &swmmSqliteIO
+template<>
+double InputCursor::read(int col)
+{
+  return readDouble(col);
+}
+
+template<>
+const std::string InputCursor::read(int col)
+{
+  return readText(col);
+}
+
+class Swmm6InputCursor: public InputCursor
+{
+  sqlite3_stmt* _stmt;
+public:
+  Swmm6InputCursor(sqlite3_stmt* stmt): _stmt(stmt) {}
+
+  bool next() override
+  {
+    int rc = sqlite3_step(_stmt);
+    if(rc == SQLITE_ROW) {
+      return true;
+    }
+    if(rc == SQLITE_DONE) {
+      return false;
+    }
+    throw IoError(sqlite3_errmsg(sqlite3_db_handle(_stmt)));
+  }
+
+  int readInt(int col) override
+  {
+    return sqlite3_column_int(_stmt, col);
+  }
+
+  double readDouble(int col) override
+  {
+    return sqlite3_column_double(_stmt, col);
+  }
+  const std::string readText(int col) override
+  {
+    return (const char*) sqlite3_column_text(_stmt, col);
+  }
 };
 
-swmm6_io_module* defaultIO = &swmmSqliteIO;
+class Swmm6Input: public Input
+{
+  sqlite3* _db;
+public:
+  Swmm6Input(const char* dbName)
+  {
+    sqlite3_open_v2(dbName, &_db, SQLITE_READONLY, NULL);
+  }
+
+  ~Swmm6Input()
+  {
+    sqlite3_close_v2(_db);
+  }
+
+  swmm6_scenario_info* describeScenario(const char* scenario) override
+  {
+    (void) scenario;
+    static const char* queries[] = {
+      "SELECT uid, name, invert, rim FROM JUNCTION;"
+    };
+    static const char* providers[] = {
+      "JUNCTION"
+    };
+    static swmm6_scenario_info sqlInfo = {
+      queries,
+      providers,
+      1
+    };
+    return &sqlInfo;
+  }
+
+  void releaseScenario(swmm6_scenario_info* info) override
+  {
+    (void) info;
+  }
+
+  Swmm6InputCursor* openCursor(const char* query, const swmm6_scenario_info& info) override
+  {
+    (void) info;
+    sqlite3_stmt* stmt;
+    int rc = sqlite3_prepare_v2(_db, query, -1, &stmt, NULL);
+    if(rc) {
+      throw IoError(sqlite3_errmsg(_db));
+    }
+    return new Swmm6InputCursor(stmt);
+  }
+};
+
+class ExtensionInputCursor: public InputCursor
+{
+  swmm6_input_cursor* _cursor;
+  swmm6_io_module* _methods;
+public:
+  ExtensionInputCursor(swmm6_input_cursor* cursor): _cursor(cursor), _methods(cursor->pInp->io_methods) {}
+  ~ExtensionInputCursor()
+  {
+    _methods->xCloseCursor(_cursor);
+  }
+  bool next() override
+  {
+    return _methods->xNext(_cursor);
+  }
+  int readInt(int col) override
+  {
+    return _methods->xReadInt(_cursor, col);
+  }
+  double readDouble(int col) override
+  {
+    return _methods->xReadDouble(_cursor, col);
+  }
+  const std::string readText(int col) override
+  {
+    return _methods->xReadText(_cursor, col);
+  }
+};
+
+class ExtensionInput: public Input
+{
+  swmm6_input* _input;
+  swmm6_io_module* _methods;
+
+public:
+  ExtensionInput(swmm6_input* input): _input(input), _methods(input->io_methods) {}
+
+  ~ExtensionInput()
+  {
+    _methods->xCloseInput(_input);
+  }
+
+  swmm6_scenario_info* describeScenario(const char* scenario) override
+  {
+    swmm6_scenario_info* info;
+    int rc = _methods->xDescribeScenario(scenario, _input, &info);
+    if(rc) {
+      throw IoError("Error describing scenario", rc);
+    }
+    return info;
+  }
+
+  virtual ExtensionInputCursor* openCursor(const char* query, const swmm6_scenario_info& info) override
+  {
+    swmm6_input_cursor* cursor;
+    int rc = _methods->xOpenCursor(_input, query, addressof(info), &cursor);
+    if(rc) {
+      throw IoError("Error opening cursor", rc);
+    }
+    return new ExtensionInputCursor(cursor);
+  }
+
+  void releaseScenario(swmm6_scenario_info* info) override
+  {
+    int rc = _methods->xReleaseScenario(_input, info);
+    if(rc) {
+      throw IoError("Cannot release scenario info", rc);
+    }
+  }
+};
+
+static unordered_map<string, swmm6_io_module*> extensionInputModules;
+
+#define SWMM6_INPUT_MODULE "swmm6"
+static string defaultInput = SWMM6_INPUT_MODULE;
+
+} // namespace swmm
 
 int swmm6_register_io_module(swmm6_io_module* pMod, int makeDefault)
 {
-  if(nIO >= SWMM_MAX_IO) {
-    return SWMM_ABORT;
+  using namespace swmm;
+  auto [ iter, success ] = extensionInputModules.insert({pMod->sName, pMod});
+  if(!success) {
+    return SWMM_ERROR;
   }
-  vIO[nIO] = pMod;
-  nIO++;
   if(makeDefault) {
-    defaultIO = pMod;
+    defaultInput = iter->first;
   }
   return SWMM_OK;
 }
 
-swmm6_io_module* swmm6_find_io_module(const char* sName)
+
+swmm::Input* inputOpen(const char* sInpName, const char* sModule)
 {
-  if(sName == NULL) {
-    return defaultIO;
-  }
-  int index;
-  for(index = 0 ; index < nIO ; index++) {
-    assert(index < SWMM_MAX_IO);
-    if(strcmp(vIO[index]->sName, sName) == 0) {
-      return vIO[index];
+  using namespace swmm;
+  string moduleName = sModule == NULL ? defaultInput : sModule;
+  swmm6_io_module* ioModule = extensionInputModules.at(sModule);
+  if(ioModule == NULL) {
+    if(moduleName == SWMM6_INPUT_MODULE) {
+      // using builtin module
+      return new Swmm6Input(sInpName);
     }
+    throw IoError("No IO Module: " + string(sModule));
   }
-  return NULL;
-}
-
-int inputOpen(const char* sInpName, const char* sModule, swmm6_input** outInput)
-{
-  swmm6_io_module* pIO = swmm6_find_io_module(sModule);
   swmm6_input* pInp;
-  int rc = pIO->xOpenInput(sInpName, &pInp);
+  int rc = ioModule->xOpenInput(sInpName, &pInp);
   if(rc) {
-    *outInput = NULL;
-    return rc;
+    throw IoError("Unable to open", rc);
   }
-  pInp->io_methods = pIO;
-  pInp->sName = strdup(sInpName);
-  if(pInp->sName == NULL) {
-    inputClose(pInp);
-    return SWMM_NOMEM;
-  }
-  *outInput = pInp;
-  return SWMM_OK;
+  return new ExtensionInput(pInp);
 }
 
 int inputDescribeScenario(const char* scenario, swmm6_input* inp, swmm6_scenario_info** outInfo)
@@ -78,10 +237,10 @@ int inputReleaseScenario(swmm6_input* inp, swmm6_scenario_info* info)
   VIRTUAL_CALL(inp->io_methods,xReleaseScenario, inp, info);
 }
 
-int inputOpenCursor(swmm6_input* inp, const char* query, swmm6_provider* prv, swmm6_input_cursor** outCursor)
+int inputOpenCursor(swmm6_input* inp, const char* query, const swmm6_scenario_info* info, swmm6_input_cursor** outCursor)
 {
   VIRTUAL_CHECK(inp->io_methods, xOpenCursor)
-  int rc = inp->io_methods->xOpenCursor(inp, query, prv, outCursor);
+  int rc = inp->io_methods->xOpenCursor(inp, query, info, outCursor);
   if(rc) {
     return rc;
   }
@@ -117,7 +276,7 @@ int inputCloseCursor(swmm6_input_cursor* cursor)
 
 int inputClose(swmm6_input* inp)
 {
-  free(inp->sName);
+  free((void*)inp->sName);
   VIRTUAL_CALL(inp->io_methods,xCloseInput, inp)
 }
 
@@ -147,7 +306,7 @@ int swmmSqliteOpen(const char* name, swmm6_input** outInp)
     puts(sqlite3_errmsg(db));
     return SWMM_ERROR;
   }
-  sqlInp = malloc(sizeof(*sqlInp));
+  sqlInp = new SqliteInput();
   if(sqlInp == NULL) {
     sqlite3_close(db);
     return SWMM_ERROR;
@@ -161,10 +320,10 @@ int swmmSqliteDescribeScenario(const char* scenario, swmm6_input* inp, swmm6_sce
 {
   (void) scenario;
   (void) inp;
-  static char* queries[] = {
+  static const char* queries[] = {
     "SELECT uid, name, invert, rim FROM JUNCTION;"
   };
-  static char* providers[] = {
+  static const char* providers[] = {
     "JUNCTION"
   };
   static swmm6_scenario_info sqlInfo = {
@@ -187,10 +346,10 @@ int swmmSqliteReleaseScenario(swmm6_input* inp, swmm6_scenario_info* info)
 int swmmSqliteOpenCursor(
   swmm6_input* inp,
   const char* query,
-  swmm6_provider* prv,
+  const swmm6_scenario_info* info,
   swmm6_input_cursor** outCur)
 {
-  (void) prv;
+  (void) info;
   SqliteInput* sqlInp = (SqliteInput*) inp;
   SqliteInputCursor* sqlCur;
   sqlite3_stmt* stmt;
@@ -208,7 +367,7 @@ int swmmSqliteOpenCursor(
     puts(sqlite3_errmsg(sqlInp->db));
     return SWMM_ERROR;
   }
-  sqlCur = malloc(sizeof(*sqlCur));
+  sqlCur = new SqliteInputCursor();
   sqlCur->stmt = stmt;
   *outCur = (swmm6_input_cursor*) sqlCur;
   return SWMM_OK;
@@ -270,7 +429,7 @@ int swmmSqliteCloseCursor(swmm6_input_cursor* cur)
   if(rc) {
     return SWMM_ERROR;
   }
-  free(sqlCur);
+  delete sqlCur;
   return SWMM_OK;
 }
 
@@ -282,7 +441,7 @@ int swmmSqliteCloseInput(swmm6_input* inp)
     puts(sqlite3_errmsg(sqlInp->db));
     return SWMM_ERROR;
   }
-  free(sqlInp);
+  delete sqlInp;
   return SWMM_OK;
 }
 

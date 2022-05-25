@@ -1,7 +1,15 @@
 #ifndef SWMM_PROVIDER_H
 #define SWMM_PROVIDER_H
 
-#include "swmm6_int.h"
+#include "swmm6_int.hh"
+
+namespace swmm
+{
+struct Provider
+{
+
+};
+} // namespace swmm
 /*
 int providerOpen(swmm6* prj, const char* prvModule, swmm6_provider** outPrv, void* userData);
 */

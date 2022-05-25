@@ -19,12 +19,12 @@ typedef int swmm6_uid;
 typedef struct swmm6 swmm6;
 
 SWMM6_EXPORT
-int swmm6_open(const char* input, swmm6** pPrj, const char* inp_mod);
+int swmm6_open(const char* input, swmm6** pPrj);
 
 typedef struct swmm6_simulation swmm6_simulation;
 
 SWMM6_EXPORT
-int swmm6_open_simulation(const char* scenario, swmm6* prj, swmm6_simulation** pSim, char** zErr);
+int swmm6_open_simulation(const char* scenario, swmm6* prj, swmm6_simulation** pSim);
 
 SWMM6_EXPORT
 int swmm6_step(swmm6_simulation* sim);

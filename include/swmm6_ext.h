@@ -95,7 +95,7 @@ typedef struct swmm6_provider swmm6_provider;
 
 #define SWMM_MAX_NAME 255
 // include null terminator
-#define SWMM_NAME_BUFFER_SIZE 256 
+#define SWMM_NAME_BUFFER_SIZE 256
 
 typedef struct swmm6_builder
 {
@@ -118,7 +118,7 @@ struct swmm6_provider
   const char* sKind;
   swmm6_object_methods* methods;
   int nParams;
-  char** aParams;
+  const char** aParams;
   swmm6_param_type* aParamTypes;
   int (*xGetBuilder)(swmm6_builder** outBldr);
   int (*xCreateObject)(swmm6_builder* bldr, swmm6_object** outObj);
@@ -133,11 +133,11 @@ int swmm6_create_provider(swmm6* prj, swmm6_provider* prv);
 struct swmm6_io_module
 {
   int iVersion;
-  char* sName;
+  const char* sName;
   int (*xOpenInput)(const char* name, swmm6_input** outInp);
   int (*xDescribeScenario)(const char* scenario, swmm6_input* inp,
       swmm6_scenario_info** info);
-  int (*xOpenCursor)(swmm6_input* inp, const char* query, swmm6_provider* prv, swmm6_input_cursor** outCur);
+  int (*xOpenCursor)(swmm6_input* inp, const char* query, const swmm6_scenario_info* info, swmm6_input_cursor** outCur);
   int (*xNext)(swmm6_input_cursor* cur);
 
 /* cursor reading methods */
@@ -155,15 +155,15 @@ struct swmm6_io_module
 struct swmm6_input
 {
   swmm6_io_module* io_methods;
-  char* sName;
+  const char* sName;
   int nCursors;
 };
 
 struct swmm6_scenario_info
 {
-  char** aQueries; // array of queries to build model
-  char** aProviders;//array of providers associated with each query
-  int nQueries; // length of query array
+  const char** aQueries;   // array of queries to build model
+  const char** aProviders; //array of providers associated with each query
+  int nQueries;            // length of query array
 };
 
 struct swmm6_input_cursor
@@ -184,7 +184,7 @@ SWMM6_EXPORT
 swmm6_io_module* swmm6_find_io_module(const char* sName);
 
 SWMM6_EXPORT
-int swmm6_describe_input(swmm6* prj, const char* schema);
+int swmm6_open_with(const char* input, swmm6** pPrj, swmm6_io_module* io);
 
 /* builder structs for custom inputs to read core objects */
 

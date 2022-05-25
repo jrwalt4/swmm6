@@ -1,6 +1,6 @@
-#include "swmm6_int.h"
+#include "swmm6_int.hh"
 
-#include "input.h"
+#include "input.hh"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -63,7 +63,7 @@ int JunctionProviderOpen(swmm6* prj, swmm6_provider** outPrv, void* userData)
 int JunctionProviderResetBuilder(swmm6_builder* bldr)
 {
   // builder base properties reset by call to providerResetBuilder,
-  // only reset our subclass properties. 
+  // only reset our subclass properties.
   swmm6_junction_builder* jxnBldr = (swmm6_junction_builder*)bldr;
   jxnBldr->invert = -1;
   jxnBldr->rim = -1;
@@ -72,7 +72,7 @@ int JunctionProviderResetBuilder(swmm6_builder* bldr)
 
 int JunctionProviderGetBuilder(swmm6_builder** outBldr)
 {
-  swmm6_junction_builder* bldr = malloc(sizeof(*bldr));
+  swmm6_junction_builder* bldr = (swmm6_junction_builder*) malloc(sizeof(*bldr));
   JunctionProviderResetBuilder((swmm6_builder*)bldr);
   *outBldr = (swmm6_builder*) bldr;
   return SWMM_OK;
@@ -82,7 +82,7 @@ int JunctionProviderRead(swmm6_provider* prv, int param, const char* value, swmm
 {
   (void) prv;
   switch(param) {
-    case 0: 
+    case 0:
       bldr->uid = atoi(value);
       break;
     case 1:
@@ -99,7 +99,7 @@ int JunctionProviderRead(swmm6_provider* prv, int param, const char* value, swmm
 
 int JunctionProviderCreateObject(swmm6_builder* objBldr, swmm6_object** outNode)
 {
-  swmm6_junction_node* jxn = malloc(sizeof(*jxn));
+  swmm6_junction_node* jxn = (swmm6_junction_node*) malloc(sizeof(*jxn));
   if(jxn == NULL) {
     return SWMM_ERROR;
   }
@@ -120,7 +120,7 @@ int JunctionProviderReleaseBuilder(swmm6_builder* bldr)
 
 int JunctionProviderReadCursor(swmm6_input_cursor* cur, swmm6_object** outNode)
 {
-  swmm6_junction_node* jxn = malloc(sizeof(*jxn));
+  swmm6_junction_node* jxn = (swmm6_junction_node*) malloc(sizeof(*jxn));
   if(jxn == NULL) {
     return SWMM_ERROR;
   }
@@ -132,7 +132,7 @@ int JunctionProviderReadCursor(swmm6_input_cursor* cur, swmm6_object** outNode)
   return SWMM_OK;
 }
 
-static char* JunctionParams[] = {"uid", "name", "invert", "rim"};
+static const char* JunctionParams[] = {"uid", "name", "invert", "rim"};
 static swmm6_param_type JunctionParamTypes[] = { SWMM_INT, SWMM_TEXT, SWMM_REAL, SWMM_REAL};
 
 static swmm6_provider JunctionProvider = {

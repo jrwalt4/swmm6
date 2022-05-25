@@ -1,7 +1,7 @@
 #ifndef SWMM_SIMULATION_H
 #define SWMM_SIMULATION_H
 
-#include "swmm6_int.h"
+#include "swmm6_int.hh"
 
 typedef enum SimulationStatus
 {

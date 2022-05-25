@@ -1,4 +1,4 @@
-#include "swmm6_int.h"
+#include "swmm6_int.hh"
 
 int swmm6_object_destroy(swmm6_object* pObj)
 {

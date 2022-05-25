@@ -1,4 +1,4 @@
-#include "simulation.h"
+#include "simulation.hh"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -6,7 +6,7 @@
 
 int simulationOpen(const char* scenario, swmm6* prj, swmm6_simulation** outSim)
 {
-  swmm6_simulation* sim = malloc(sizeof(*sim));
+  swmm6_simulation* sim = (swmm6_simulation*) malloc(sizeof(*sim));
   if(sim == NULL) {
     return SWMM_ERROR;
   }

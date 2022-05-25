@@ -1,24 +1,29 @@
-#include "swmm6_int.h"
+#include "swmm6_int.hh"
 
-#include "hash.h"
-#include "input.h"
-#include "provider.h"
-#include "simulation.h"
+#include "input.hh"
+#include "provider.hh"
+#include "simulation.hh"
 
 #include <assert.h>
+#include <memory>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
+#include <string>
+#include <unordered_map>
+
+using namespace std;
 
 struct swmm6
 {
-  swmm6_input* ioInput;
+  unique_ptr<swmm::Input> ioInput;
   swmm6_output* ioOutput;
 
-  Hash* vProviders;
+  unordered_map<string, swmm6_provider*> providers;
 
-  Hash* vSimulations;
-  int nSimulations;
+  unordered_map<string, swmm6_simulation*> vSimulations;
+
+  explicit swmm6(swmm::Input* inp): ioInput(inp) {}
+
 };
 
 swmm6_provider* swmmFindProvider(swmm6* prj, const char* sModuleName)
@@ -26,11 +31,11 @@ swmm6_provider* swmmFindProvider(swmm6* prj, const char* sModuleName)
   if(sModuleName == NULL) {
     return NULL;
   }
-  swmm6_provider* prv = (swmm6_provider*) hash_get(prj->vProviders, sModuleName);
+  swmm6_provider* prv = prj->providers.at(string(sModuleName));
   /*
   for(int index = 0 ; index < prj->nProviders ; index++) {
-    if(strcmp(prj->vProviders[index]->sKind, sModuleName) == 0) {
-      return prj->vProviders[index];
+    if(strcmp(prj->providers[index]->sKind, sModuleName) == 0) {
+      return prj->providers[index];
     }
   }
   */
@@ -39,67 +44,44 @@ swmm6_provider* swmmFindProvider(swmm6* prj, const char* sModuleName)
 
 int swmm6_create_provider(swmm6* prj, swmm6_provider* prv)
 {
-
-  const char* key = hash_set(prj->vProviders, prv->sKind, prv);
-  if(key == NULL) {
+  string key{prv->sKind};
+  pair<string, swmm6_provider*> kv(key, prv);
+  bool success = prj->providers.insert( { std::string{prv->sKind} , prv } ).second;
+  if(!success) {
     return SWMM_ERROR;
   }
   /*
-  swmm6_provider** module_array = realloc(prj->vProviders, sizeof(prv) * (prj->nProviders + 1));
+  swmm6_provider** module_array = realloc(prj->providers, sizeof(prv) * (prj->nProviders + 1));
 
   if(module_array == NULL) {
     return SWMM_ERROR;
   }
   module_array[prj->nProviders] = prv;
-  prj->vProviders = module_array;
+  prj->providers = module_array;
   prj->nProviders++;
   */
   return SWMM_OK;
 }
 
-int swmm6_open(const char* inpName, swmm6** pPrj, const char* inpMod)
+int swmm6_open(const char* input, swmm6** pPrj)
 {
-  swmm6* prj;
-  swmm6_input* pInp;
-  int rc = inputOpen(inpName, inpMod, &pInp);
-  if(rc) {
-    return rc;
-  }
-  prj = calloc(1,sizeof(*prj));
+
+}
+
+int swmm6_open_with(const char* inpName, swmm6** pPrj, const char* io)
+{
+  swmm6* prj = new swmm6(inputOpen(inpName, io));
   if(prj == NULL) {
     return SWMM_ERROR;
   }
-  prj->ioInput = pInp;
-  puts("Creating providers");
-  prj->vProviders   = hash_create();
-  if(prj->vProviders == NULL) {
-    rc = SWMM_ERROR;
-    goto cleanup_prj;
-  }
-  puts("Creating simulations");
-  prj->vSimulations = hash_create();
-  if(prj->vSimulations == NULL) {
-    rc = SWMM_ERROR;
-    goto cleanup_providers;
-    // hash_destroy(prj->vProviders);
-    // free(prj);
-    // return SWMM_ERROR;
-  }
-  rc = swmmCreateBuiltinNodeProviders(prj);
+
+  int rc = swmmCreateBuiltinNodeProviders(prj);
   if(rc) {
-    goto cleanup_simulations;
-    // free(prj);
-    // return rc;
+    delete prj;
+    return rc;
   }
   *pPrj = prj;
   return SWMM_OK;
-cleanup_simulations:
-  hash_destroy(prj->vSimulations);
-cleanup_providers:
-  hash_destroy(prj->vProviders);
-cleanup_prj:
-  free(prj);
-  return SWMM_ERROR;
 }
 
 int swmmReadCursor(swmm6* prj, swmm6_input_cursor* cur, swmm6_provider* prv, swmm6_simulation* sim)
@@ -156,7 +138,7 @@ int swmm6_open_simulation(const char* scenario, swmm6* prj, swmm6_simulation** p
       rc = SWMM_NOTFOUND;
       goto cursor_fail;
     }
-    rc = inputOpenCursor(inp, info->aQueries[i], prv, &cur);
+    rc = inputOpenCursor(inp, info->aQueries[i], info, &cur);
     if(rc) {
       goto cursor_fail;
     }
@@ -188,7 +170,7 @@ int swmmCloseProviders(swmm6* prj)
   int prv_rc = SWMM_OK;
   swmm6_provider* prv;
   for(i = 0 ; i < prj->nProviders ; i++) {
-    prv = prj->vProviders[i];
+    prv = prj->providers[i];
     prv_rc = providerClose(prv);
     if(prv_rc) {
       // log that there was an issue, use as function return
@@ -203,42 +185,23 @@ int swmmCloseSimulations(swmm6* prj)
   // int i;
   int rc = SWMM_OK;
   int sim_rc = SWMM_OK;
-  HashIter sim_it = hash_iterator(prj->vSimulations);
-  while(hash_next(&sim_it)) {
-    sim_rc = simulationClose(hash_get(prj->vSimulations, sim_it.key));
+  for(auto& key_val : prj->vSimulations)
+  {
+    sim_rc = simulationClose(key_val.second);
     if(sim_rc) {
       // log that there was an issue, use as function return
       rc = sim_rc;
     }
   }
-  /*
-  for(i = 0 ; i < prj->nSimulations ; i++) {
-    sim_rc = simulationClose(prj->vSimulations[i]);
-    if(sim_rc) {
-      // log that there was an issue, use as function return
-      rc = sim_rc;
-    }
-  }
-  */
   return rc;
 }
 
 int swmm6_close(swmm6* prj)
 {
   int rc = SWMM_OK;
-  //rc = swmmCloseProviders(prj);
-  puts("Closing providers");
-  hash_destroy(prj->vProviders);
-
   puts("Closing simulations");
   rc = swmmCloseSimulations(prj);
-  puts("Destroying simulation hash");
-  hash_destroy(prj->vSimulations);
-
-  puts("Closing input");
-  rc = inputClose(prj->ioInput);
-
-  free(prj);
+  delete prj;
 
   return rc;
 }
