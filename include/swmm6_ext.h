@@ -203,7 +203,7 @@ typedef struct swmm6_api_routines
 } swmm6_api_routines;
 
 SWMM6_EXPORT
-int swmm6_extension_init(swmm6* prj, char** ppErrMsg, const swmm6_api_routines* api);
+typedef int (*swmm6_extension_init)(swmm6* prj, char** ppErrMsg, const swmm6_api_routines* api);
 
 #ifndef SWMM_CORE
 #define SWMM_EXT_INIT1 const swmm6_api_routines* swmm6api = 0;

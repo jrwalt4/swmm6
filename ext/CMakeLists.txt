@@ -1,12 +1,17 @@
 
+find_package(Python3 COMPONENTS Development)
+
+add_library(cswmm6 SHARED cswmm6.c)
+target_link_libraries(cswmm6 PUBLIC Python3::Module swmm6)
+
 set(PYSWMM6_CYTHON_SOURCE ${CMAKE_CURRENT_LIST_DIR}/pyswmm6.pyx)
 set(PYSWMM6_CYTHON_OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/pyswmm6.c)
 set(PYSWMM6_MODULE_PATH ${CMAKE_CURRENT_BINARY_DIR})
 
 # generate the cython C source file
-add_custom_command(
-    OUTPUT ${PYSWMM6_CYTHON_OUTPUT}
-    COMMAND cython ${PYSWMM6_CYTHON_SOURCE} -3 -o ${PYSWMM6_CYTHON_OUTPUT}
+add_custom_target(pyswmm6-cython
+    BYPRODUCTS ${PYSWMM6_CYTHON_OUTPUT}
+    COMMAND cython ${PYSWMM6_CYTHON_SOURCE} -3 -o ${PYSWMM6_CYTHON_OUTPUT} --annotate
     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
 )
 
