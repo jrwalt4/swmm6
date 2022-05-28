@@ -1,0 +1,6 @@
+import sys; sys.path.append("@PYSWMM6_MODULE_PATH@")
+from pyswmm6 import say_hello_to
+
+if '__main__' == __name__:
+    say_hello_to("Reese")
+    sys.exit(0)

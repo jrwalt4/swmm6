@@ -1,11 +1,12 @@
-from setuptools import setup
-from Cython.Build import cythonize
+from setuptools import setup, Extension
+
+pyswmm6ext = Extension(
+    "@PYSWMM6_MODULE_NAME@",
+    ["@PYSWMM6_CYTHON_OUTPUT@"]
+)
 
 setup(
     name='Hello world app',
-    ext_modules=cythonize(
-        "pyswmm6.pyx",
-        build_dir = "@CMAKE_CURRENT_BINARY_DIR@"
-    ),
+    ext_modules=[pyswmm6ext],
     zip_safe=False
 )
