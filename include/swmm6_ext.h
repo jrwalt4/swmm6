@@ -18,6 +18,7 @@ typedef struct swmm6_router swmm6_router;
 typedef struct swmm6_io_module swmm6_io_module;
 typedef struct swmm6_scenario_info swmm6_scenario_info;
 typedef struct swmm6_input swmm6_input;
+typedef struct swmm6_scenario_cursor swmm6_scenario_cursor;
 typedef struct swmm6_input_cursor swmm6_input_cursor;
 typedef struct swmm6_output swmm6_output;
 
@@ -135,10 +136,11 @@ struct swmm6_io_module
   int iVersion;
   const char* sName;
   int (*xOpenInput)(const char* name, swmm6_input** outInp);
-  int (*xDescribeScenario)(const char* scenario, swmm6_input* inp,
-      swmm6_scenario_info** info);
-  int (*xOpenCursor)(swmm6_input* inp, const char* query, const swmm6_scenario_info* info, swmm6_input_cursor** outCur);
-  int (*xNext)(swmm6_input_cursor* cur);
+  int (*xOpenScenario)(const char* scenario, swmm6_input* inp,
+      swmm6_scenario_cursor** info);
+  int (*xScenarioNext)(swmm6_scenario_cursor* scn_cursor);
+  int (*xOpenCursor)(swmm6_scenario_cursor* inp, swmm6_input_cursor** outCur);
+  int (*xCursorNext)(swmm6_input_cursor* cur);
 
 /* cursor reading methods */
   int (*xReadInt)(swmm6_input_cursor* cur, int col);
@@ -146,7 +148,7 @@ struct swmm6_io_module
   const char* (*xReadText)(swmm6_input_cursor* cur, int col);
 
   int (*xCloseCursor)(swmm6_input_cursor* cur);
-  int (*xReleaseScenario)(swmm6_input* inp, swmm6_scenario_info* info);
+  int (*xCloseScenario)(swmm6_input* inp, swmm6_scenario_info* info);
   int (*xCloseInput)(swmm6_input* inp);
   int (*xOpenOutput)(const char* name, swmm6_output** ppOut);
   int (*xCloseOutput)(swmm6_output* pOut);
@@ -159,16 +161,15 @@ struct swmm6_input
   int nCursors;
 };
 
-struct swmm6_scenario_info
+struct swmm6_scenario_cursor
 {
-  const char** aQueries;   // array of queries to build model
-  const char** aProviders; //array of providers associated with each query
-  int nQueries;            // length of query array
+  swmm6_input* pInp;
 };
 
 struct swmm6_input_cursor
 {
   swmm6_input* pInp;
+  const char* sProvider;
 };
 
 struct swmm6_output
@@ -178,13 +179,7 @@ struct swmm6_output
 };
 
 SWMM6_EXPORT
-int swmm6_register_io_module(swmm6_io_module* mod, int makeDefault);
-
-SWMM6_EXPORT
-swmm6_io_module* swmm6_find_io_module(const char* sName);
-
-SWMM6_EXPORT
-int swmm6_open_with(const char* input, swmm6** pPrj, swmm6_io_module* io);
+int swmm6_open_with(const char* input, swmm6** pPrj, const swmm6_io_module* io);
 
 /* builder structs for custom inputs to read core objects */
 

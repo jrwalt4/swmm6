@@ -3,6 +3,28 @@
 #include <stdlib.h>
 #include <string.h>
 
+namespace swmm
+{
+
+class ExtensionProvider: public Provider
+{
+  swmm6_provider* _provider;
+  ExtensionProvider(swmm6_provider* prv): _provider(prv) {}
+
+  Object* read_cursor(InputObjectCursor& cursor)
+  {
+    swmm6_object* obj;
+    int rc = _provider->xReadCursor(cursor.as_extension(), &obj);
+    obj->object_methods = _provider->methods;
+  }
+}
+
+Provider* Provider::from_extension(swmm6_provider* prv)
+{
+
+}
+}
+
 /*
 int providerOpen(swmm6* prj, const char* sModuleName, swmm6_provider** outPrv, void* userData)
 {

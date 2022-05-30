@@ -6,25 +6,25 @@
 #define SWMM_CORE 1
 #include "swmm6_ext.h"
 
+#include "provider.hh"
+
 #define SWMM_DEBUG 1
 #define VIRTUAL_CHECK(vtable, method) if( vtable->method == NULL ) return SWMM_NOIMPL;
 #define VIRTUAL_CALL(vtable, method, args...) \
 VIRTUAL_CHECK(vtable, method)\
 return vtable->method(args);
 
-swmm6_provider* swmmFindProvider(swmm6* prj, const char* sModuleName);
+namespace swmm
+{
 
-/**
- * Called by node module to load builtin nodes
- * (JUNCTION, STORAGE, OUTFALL, etc.)
- */
-int swmmCreateBuiltinNodeProviders(swmm6* prj);
-
+bool registerProvider(swmm6* prj, Provider* prv);
 
 /**
  * Called by link module to load builtin links
  * (CONDUIT, WEIR, PUMP, etc.)
  */
-int swmmCreateBuiltinLinkProviders(swmm6* prj);
+int createBuiltinLinkProviders(swmm6* prj);
+
+} // namespace swmm
 
 #endif //SWMM6_INT_H

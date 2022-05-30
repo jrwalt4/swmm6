@@ -44,7 +44,8 @@ class Error: public std::exception
 public:
     Error(int code = SWMM_ERROR): _code(code) {}
 
-    ErrorCode code() const;
+    ErrorCode errcode() const;
+    int code() const;
 };
 
 class IoError: public Error
@@ -52,6 +53,13 @@ class IoError: public Error
     std::string _msg;
 public:
     IoError(std::string msg, int code = SWMM_ERROR): Error(code), _msg(std::move(msg)) {}
+};
+
+class NotImplementedError: public Error
+{
+    std::string _method;
+public:
+    NotImplementedError(std::string method): Error(SWMM_NOIMPL), _method(std::move(method)) {}
 };
 
 }

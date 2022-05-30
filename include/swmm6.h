@@ -46,6 +46,7 @@ EXTERN_C_CLOSE
 #define SWMM_DONE     5
 #define SWMM_NOIMPL   6
 #define SWMM_NOMEM    7
+#define SWMM_NEXT     8
 
 
 #endif // SWMM_H

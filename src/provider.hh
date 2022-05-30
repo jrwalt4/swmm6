@@ -3,11 +3,18 @@
 
 #include "swmm6_int.hh"
 
+#include "input.hh"
+#include "object.hh"
+
+#include <string>
+
 namespace swmm
 {
 struct Provider
 {
+    virtual Object* read_cursor(InputObjectCursor& cursor) = 0;
 
+    static Provider* from_extension(swmm6_provider* prv);
 };
 } // namespace swmm
 /*

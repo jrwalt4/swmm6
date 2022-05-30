@@ -1,5 +1,6 @@
 #include "swmm6_int.hh"
 
+#include "error.hh"
 #include "input.hh"
 #include "provider.hh"
 #include "simulation.hh"
@@ -12,41 +13,40 @@
 #include <unordered_map>
 
 using namespace std;
+using namespace swmm;
 
 struct swmm6
 {
-  unique_ptr<swmm::Input> ioInput;
-  swmm6_output* ioOutput;
+private:
+  unique_ptr<Input> _input;
+  swmm6_output* _output;
 
-  unordered_map<string, swmm6_provider*> providers;
+  unordered_map<string, unique_ptr<Provider>> _providers;
 
-  unordered_map<string, swmm6_simulation*> vSimulations;
+  unordered_map<string, unique_ptr<Simulation>> _simulations;
+public:
+  explicit swmm6(Input* inp): _input(inp) {}
 
-  explicit swmm6(swmm::Input* inp): ioInput(inp) {}
+  Input& get_input() const noexcept {
+    return *_input;
+  }
 
+
+
+  bool register_provider(Provider* prv) {
+    return std::get<1>(_providers.insert( { string{prv->sKind}, prv }));
+  }
 };
 
-swmm6_provider* swmmFindProvider(swmm6* prj, const char* sModuleName)
+bool registerProvider(swmm6* prj, Provider* prv)
 {
-  if(sModuleName == NULL) {
-    return NULL;
-  }
-  swmm6_provider* prv = prj->providers.at(string(sModuleName));
-  /*
-  for(int index = 0 ; index < prj->nProviders ; index++) {
-    if(strcmp(prj->providers[index]->sKind, sModuleName) == 0) {
-      return prj->providers[index];
-    }
-  }
-  */
-  return prv;
+  prj->regsiter
+
 }
 
 int swmm6_create_provider(swmm6* prj, swmm6_provider* prv)
 {
-  string key{prv->sKind};
-  pair<string, swmm6_provider*> kv(key, prv);
-  bool success = prj->providers.insert( { std::string{prv->sKind} , prv } ).second;
+  bool success = prj->create_provider(prv);
   if(!success) {
     return SWMM_ERROR;
   }
@@ -65,17 +65,26 @@ int swmm6_create_provider(swmm6* prj, swmm6_provider* prv)
 
 int swmm6_open(const char* input, swmm6** pPrj)
 {
-
+  return swmm6_open_with(input, pPrj, NULL);
 }
 
-int swmm6_open_with(const char* inpName, swmm6** pPrj, const char* io)
+int swmm6_open_with(const char* inpName, swmm6** pPrj, const swmm6_io_module* io)
 {
-  swmm6* prj = new swmm6(inputOpen(inpName, io));
+  Input* inp;
+  try {
+    inp = Input::open(inpName, io);
+    if(inp == nullptr) {
+      return SWMM_ERROR;
+    }
+  } catch (IoError& err) {
+    return err.code();
+  }
+  swmm6* prj = new swmm6(inp);
   if(prj == NULL) {
     return SWMM_ERROR;
   }
 
-  int rc = swmmCreateBuiltinNodeProviders(prj);
+  int rc = createBuiltinNodeProviders(prj);
   if(rc) {
     delete prj;
     return rc;
@@ -112,8 +121,8 @@ int swmm6_open_simulation(const char* scenario, swmm6* prj, swmm6_simulation** p
 {
   (void) zErr;
   int rc;
-  swmm6_input* inp = prj->ioInput;
-  swmm6_simulation* sim;
+  Input& inp = prj->get_input();
+  Simulation* sim;
   swmm6_scenario_info* info;
   swmm6_input_cursor* cur;
   swmm6_provider* prv;

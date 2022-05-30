@@ -11,9 +11,14 @@
 namespace swmm
 {
 
-ErrorCode Error::code() const
+ErrorCode Error::errcode() const
 {
     return (ErrorCode) _code;
+}
+
+int Error::code() const
+{
+    return _code;
 }
 
 } // namespae swmm

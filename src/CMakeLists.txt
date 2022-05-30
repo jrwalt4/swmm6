@@ -9,7 +9,9 @@ add_library(swmm6 SHARED
   input.cc
   input.hh
   node.cc
+  node.hh
   object.cc
+  object.hh
   provider.cc
   provider.hh
   simulation.cc

@@ -1,39 +1,16 @@
 #include "simulation.hh"
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-
-int simulationOpen(const char* scenario, swmm6* prj, swmm6_simulation** outSim)
+namespace swmm
 {
-  swmm6_simulation* sim = (swmm6_simulation*) malloc(sizeof(*sim));
-  if(sim == NULL) {
-    return SWMM_ERROR;
-  }
-  sim->project = prj;
-  sim->status = SIM_OPEN;
-  sim->scenario = strdup(scenario);
-  if(sim->scenario == NULL) {
-    return SWMM_ERROR;
-  }
-  *outSim = sim;
-  return SWMM_OK;
+
+Node& Simulation::get_node(swmm6_uid node_uid) const
+{
+  return *_nodes.at(node_uid);
 }
 
-int simulationClose(swmm6_simulation* sim)
+Link& Simulation::get_link(swmm6_uid link_uid) const
 {
-  if(sim->status != SIM_FINISHED) {
-    puts("simulation not complete");
-  }
-  free((char* )sim->scenario);
-  free(sim->vNodes);
-  free(sim->vLinks);
-  free(sim);
-  return SWMM_OK;
+  return *_links.at(link_uid);
 }
 
-int swmm6_finish(swmm6_simulation* sim)
-{
-  sim->status = SIM_FINISHED;
-  return SWMM_OK;
 }
