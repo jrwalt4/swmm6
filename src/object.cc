@@ -1,6 +1,11 @@
-#include "swmm6_int.hh"
+#include "object.hh"
 
-int swmm6_object_destroy(swmm6_object* pObj)
+namespace swmm
 {
-  return pObj->object_methods->xDestroy(pObj);
+ExtensionObject::~ExtensionObject()
+{
+  _module->xDestroy(_obj);
 }
+
+} // namespace swmm
+

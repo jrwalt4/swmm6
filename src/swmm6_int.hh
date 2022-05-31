@@ -6,7 +6,7 @@
 #define SWMM_CORE 1
 #include "swmm6_ext.h"
 
-#include "provider.hh"
+// #include "provider.hh"
 
 #define SWMM_DEBUG 1
 #define VIRTUAL_CHECK(vtable, method) if( vtable->method == NULL ) return SWMM_NOIMPL;
@@ -16,8 +16,8 @@ return vtable->method(args);
 
 namespace swmm
 {
-
-bool registerProvider(swmm6* prj, Provider* prv);
+struct ProviderBase;
+bool registerProvider(swmm6& prj, ProviderBase& prv);
 
 /**
  * Called by link module to load builtin links

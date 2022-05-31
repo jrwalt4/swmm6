@@ -16,11 +16,9 @@
 namespace swmm
 {
 
-struct Node: public Object
+struct Node: public virtual Object
 {
     using Object::Object;
-
-    virtual Node* from_extension(swmm6_node* node);
 
     virtual double get_depth() = 0;
     virtual double get_invert() = 0;
@@ -30,7 +28,7 @@ struct Node: public Object
  * Called during prj initialization to load builtin nodes
  * (JUNCTION, STORAGE, OUTFALL, etc.)
  */
-int createBuiltinNodeProviders(swmm6* prj);
+int createBuiltinNodeProviders(swmm6& prj);
 
 }
 

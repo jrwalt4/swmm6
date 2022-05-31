@@ -7,6 +7,7 @@
 #include "node.hh"
 
 #include <memory>
+#include <string>
 #include <unordered_map>
 
 namespace swmm
@@ -20,22 +21,33 @@ typedef enum SimulationStatus
   SIM_FINISHED
 } SimulationStatus;
 
-class Simulation;
-
-typedef Simulation swmm6_simulation;
-
 class Simulation
 {
-  swmm6* project;
-  const char* scenario;
+  swmm6& _project;
+  std::string _scenario;
   std::unordered_map<swmm6_uid, std::unique_ptr<Node>> _nodes;
   std::unordered_map<swmm6_uid, std::unique_ptr<Link>> _links;
-  SimulationStatus status;
+  SimulationStatus _status;
 
 public:
+  Simulation(swmm6& prj, const char* scenario):
+    _project(prj),
+    _scenario(scenario) {}
+
+  /**
+   * @brief `swmm6_simulation*` is an opaque handle to a swmm::Simulation
+   *
+   * @return swmm6_simulation*
+   */
+  operator swmm6_simulation*()
+  {
+    return reinterpret_cast<swmm6_simulation*>(this);
+  }
 
   Node& get_node(swmm6_uid node_uid) const;
   Link& get_link(swmm6_uid link_uid) const;
+
+  SimulationStatus get_status() const;
 };
 
 int simulationOpen(const char* scenario, swmm6* prj, swmm6_simulation** outSim);

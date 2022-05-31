@@ -9,13 +9,15 @@
 #ifndef SWMM_LINK_H
 #define SWMM_LINK_H
 
+#include "object.hh"
+
 namespace swmm
 {
 
-class Link
+struct Link: public virtual Object
 {
 public:
-    swmm6_uid uid;
+    virtual double get_length() = 0;
 };
 
 }

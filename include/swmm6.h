@@ -17,6 +17,8 @@ EXTERN_C_OPEN
 typedef int swmm6_uid;
 
 typedef struct swmm6 swmm6;
+typedef struct swmm6_node swmm6_node;
+typedef struct swmm6_link swmm6_link;
 
 SWMM6_EXPORT
 int swmm6_open(const char* input, swmm6** pPrj);

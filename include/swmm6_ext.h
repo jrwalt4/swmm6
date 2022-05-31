@@ -2,17 +2,36 @@
 #define SWMM_EXT_H
 #include "swmm6.h"
 
+#if __cplusplus
+#define ENUM_DECL( NAME ) enum class NAME
+#define ENUM_TYPEDEF( NAME )
+#else
+#define ENUM_DECL( NAME ) enum NAME
+#define ENUM_TYPEDEF( NAME ) typedef enum NAME NAME;
+#endif // __cplusplus
+
 // forward declarations
 
-typedef enum swmm6_object_type
+ENUM_DECL(swmm6_object_type)
 {
   NODE,
   LINK
-} swmm6_object_type;
+};
+ENUM_TYPEDEF(swmm6_object_type)
 
-typedef struct swmm6_object swmm6_object;
-typedef struct swmm6_node swmm6_node;
-typedef struct swmm6_link swmm6_link;
+ENUM_DECL(swmm6_param_type)
+{
+  UID,
+  INT,
+  REAL,
+  TEXT,
+  UNIT
+};
+ENUM_TYPEDEF(swmm6_param_type)
+
+typedef struct swmm6_ext_object swmm6_ext_object;
+typedef struct swmm6_ext_node swmm6_ext_node;
+typedef struct swmm6_ext_link swmm6_ext_link;
 typedef struct swmm6_router swmm6_router;
 
 typedef struct swmm6_io_module swmm6_io_module;
@@ -22,34 +41,52 @@ typedef struct swmm6_scenario_cursor swmm6_scenario_cursor;
 typedef struct swmm6_input_cursor swmm6_input_cursor;
 typedef struct swmm6_output swmm6_output;
 
-/* Objects */
-typedef struct swmm6_object_methods
+typedef struct swmm6_param_def
 {
-  int (*xDestroy)(swmm6_object* obj);
-} swmm6_object_methods;
+  const char* sName;
+  swmm6_param_type eType;
+} swmm6_param_def;
 
-struct swmm6_object
+typedef struct swmm6_param_value swmm6_param_value;
+
+int swmm6_param_int(swmm6_param_value*, int col);
+double swmm6_param_real(swmm6_param_value*, int col);
+const char* swmm6_param_text(swmm6_param_value*, int col);
+
+typedef struct swmm6_ext_module
+{
+  const char* sName;
+  int iVersion;
+  swmm6_object_type eType;
+  swmm6_ext_object* (*xCreateObject)(swmm6_uid uid, const char* name);
+  int (*xDestroy)(swmm6_ext_object* obj);
+  int (*xReadParams)(swmm6_ext_object* obj, swmm6_param_value vParams[]);
+  int nParams;
+  swmm6_param_def* vParams;
+} swmm6_ext_module;
+
+
+struct swmm6_ext_object
 {
   swmm6_uid uid;
   char* name;
-  swmm6_object_methods* object_methods;
+  swmm6_ext_module* mod;
+};
+
+typedef struct swmm6_node_module
+{
+  swmm6_ext_module xModule;
+  double (*xGetDepth)(const swmm6_ext_node* node);
+  double (*xGetInvert)(const swmm6_ext_node* node);
+} swmm6_node_module;
+
+struct swmm6_ext_node
+{
+  swmm6_ext_object object_base;
 };
 
 SWMM6_EXPORT
-int swmm6_object_destroy(swmm6_object* pObj);
-
-typedef struct swmm6_node_methods
-{
-  swmm6_object_methods object_methods;
-  double (*xGetDepth)(const swmm6_node* node);
-  double (*xGetInvert)(const swmm6_node* node);
-} swmm6_node_methods;
-
-struct swmm6_node
-{
-  swmm6_object object_base;
-  swmm6_node_methods* node_methods;
-};
+int swmm6_create_node_module(swmm6* prj, swmm6_node_module* mod);
 
 SWMM6_EXPORT
 double swmm6_node_getDepth(const swmm6_node* node);
@@ -57,17 +94,19 @@ double swmm6_node_getDepth(const swmm6_node* node);
 SWMM6_EXPORT
 double swmm6_node_getInvert(const swmm6_node* node);
 
-typedef struct swmm6_link_methods
+typedef struct swmm6_link_module
 {
-  swmm6_object_methods object_methods;
-  double (*xGetLength)(const swmm6_link* link);
-} swmm6_link_methods;
+  swmm6_ext_module xModule;
+  double (*xGetLength)(const swmm6_ext_link* link);
+} swmm6_link_module;
 
-struct swmm6_link
+struct swmm6_ext_link
 {
-  swmm6_object object_base;
-  swmm6_link_methods* link_methods;
+  swmm6_ext_object object_base;
 };
+
+SWMM6_EXPORT
+int swmm6_create_link_module(swmm6* prj, swmm6_node_module* mod);
 
 SWMM6_EXPORT
 double swmm6_link_getLength(const swmm6_link* node);
@@ -90,46 +129,6 @@ struct swmm6_router_module
 
 SWMM6_EXPORT
 int swmm6_create_router(swmm6* prj, const char* sName, swmm6_router_module* sMod, void* pUserData);
-
-/* provider */
-typedef struct swmm6_provider swmm6_provider;
-
-#define SWMM_MAX_NAME 255
-// include null terminator
-#define SWMM_NAME_BUFFER_SIZE 256
-
-typedef struct swmm6_builder
-{
-  swmm6_uid uid;
-  char  name[SWMM_NAME_BUFFER_SIZE];
-  //swmm6_provider* provider;
-} swmm6_builder;
-
-typedef enum swmm6_param_type
-{
-  SWMM_INT,
-  SWMM_REAL,
-  SWMM_TEXT
-} swmm6_param_type;
-
-struct swmm6_provider
-{
-  int iVersion;
-  swmm6_object_type eType;
-  const char* sKind;
-  swmm6_object_methods* methods;
-  int nParams;
-  const char** aParams;
-  swmm6_param_type* aParamTypes;
-  int (*xGetBuilder)(swmm6_builder** outBldr);
-  int (*xCreateObject)(swmm6_builder* bldr, swmm6_object** outObj);
-  int (*xReleaseBuilder)(swmm6_builder* bldr);
-  int (*xResetBuilder)(swmm6_builder* bldr);
-  int (*xReadCursor)(swmm6_input_cursor* cur, swmm6_object** outObj);
-};
-
-SWMM6_EXPORT
-int swmm6_create_provider(swmm6* prj, swmm6_provider* prv);
 
 struct swmm6_io_module
 {
@@ -181,23 +180,12 @@ struct swmm6_output
 SWMM6_EXPORT
 int swmm6_open_with(const char* input, swmm6** pPrj, const swmm6_io_module* io);
 
-/* builder structs for custom inputs to read core objects */
-
-typedef struct swmm6_junction_builder
-{
-  swmm6_builder builder_base;
-  double invert;
-  double rim;
-} swmm6_junction_builder;
-
-
 typedef struct swmm6_api_routines
 {
   const char* (*project_name)(swmm6* pPrj);
   int (*declare_module)(swmm6* pPrj, const char* sName);
 } swmm6_api_routines;
 
-SWMM6_EXPORT
 typedef int (*swmm6_extension_init)(swmm6* prj, char** ppErrMsg, const swmm6_api_routines* api);
 
 #ifndef SWMM_CORE

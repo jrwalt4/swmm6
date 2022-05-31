@@ -13,4 +13,9 @@ Link& Simulation::get_link(swmm6_uid link_uid) const
   return *_links.at(link_uid);
 }
 
+SimulationStatus Simulation::get_status() const
+{
+  return _status;
+}
+
 }
