@@ -15,13 +15,15 @@ using namespace std;
 namespace swmm
 {
 
-class Swmm6InputObjectCursor: public InputObjectCursor
+class Swmm6InputObjectReader: public InputObjectReader
 {
   sqlite3_stmt* _stmt;
+  ParamDefPack& _params;
 public:
-  Swmm6InputObjectCursor(sqlite3_stmt* stmt): _stmt(stmt) {}
+  Swmm6InputObjectReader(sqlite3_stmt* stmt, ParamDefPack& params):
+    _stmt(stmt), _params(params) {}
 
-  ~Swmm6InputObjectCursor()
+  ~Swmm6InputObjectReader()
   {
     sqlite3_finalize(_stmt);
   }
@@ -38,55 +40,73 @@ public:
     throw IoError(sqlite3_errmsg(sqlite3_db_handle(_stmt)));
   }
 
-  int readInt(int col) override
+  int readParams(ParamPack& values) override
   {
-    return sqlite3_column_int(_stmt, col);
-  }
-
-  double readDouble(int col) override
-  {
-    return sqlite3_column_double(_stmt, col);
-  }
-  const std::string readText(int col) override
-  {
-    return (const char*) sqlite3_column_text(_stmt, col);
+    bool success;
+    int ncols = sqlite3_column_count(_stmt);
+    assert(values.length() == ncols);
+    for(int i = 0 ; i < ncols ; i++) {
+      switch(_params[i].param_type) {
+        case swmm6_param_type::INT:
+          success = values.set_int(sqlite3_column_int(_stmt, i), i);
+          break;
+        case swmm6_param_type::REAL:
+          success = values.set_real(sqlite3_column_double(_stmt, i), i);
+          break;
+        case swmm6_param_type::TEXT:
+          success = values.set_text((const char*)sqlite3_column_text(_stmt, i), i);
+          break;
+        case swmm6_param_type::UID:
+          success = values.set_int(sqlite3_column_int(_stmt, i), i);
+          break;
+      }
+      if (!success) {
+        return SWMM_ERROR;
+      }
+    }
+    return SWMM_OK;
   }
 };
 
-class Swmm6InputScenarioCursor: public InputScenarioCursor
+class Swmm6InputCursor: public InputCursor
 {
-  string _queries;
-  const char* _next_query;
-  sqlite3* _db;
+  sqlite3_stmt* _stmt;
 
 public:
-  Swmm6InputScenarioCursor(sqlite3* db, const char* scenario): _db(db)
+  Swmm6InputCursor(sqlite3* db, swmm6_object_type obj_type, const char* scenario)
   {
     (void) scenario;
-    _queries = "SELECT * FROM JUNCTIONS; SELECT * FROM CONDUITS;";
-    _next_query = _queries.c_str();
-  }
-
-  bool next() override
-  {
-    // check is `_next_query` pointer is at the end of `_queries`
-    if((_next_query - _queries.c_str()) == _queries.length()) {
-      return false;
+    const char* _query;
+    switch(obj_type) {
+      case swmm6_object_type::NODE:
+        _query = "SELECT uid, name, kind FROM JUNCTIONS;";
+      case swmm6_object_type::LINK:
+        _query = "SELECT uid, name, kind FROM CONDUITS";
     }
-    return true;
-  }
-
-  Swmm6InputObjectCursor* openObjectCursor() override
-  {
-    sqlite3_stmt* stmt;
-    // sqlite3 will set `_next_query` to beginning of next statement, or
-    // end of `_queries` if there are no more.
-    int rc = sqlite3_prepare_v2(_db, _next_query, -1, &stmt, &_next_query);
+    int rc = sqlite3_prepare_v2(db, _query, -1, &_stmt, NULL);
     if(rc) {
-      throw IoError(sqlite3_errmsg(_db));
+      throw IoError("Error opening db", rc);
     }
-    return new Swmm6InputObjectCursor(stmt);
   }
+
+  std::pair<bool, InputObjectConstructorProps> next() override
+  {
+    InputObjectConstructorProps props;
+    int rc = sqlite3_step(_stmt);
+    if(rc == SQLITE_DONE) {
+      props.uid = sqlite3_column_int(_stmt, 0);
+      props.name = (const char*)sqlite3_column_text(_stmt, 1);
+      props.kind = (const char*)sqlite3_column_text(_stmt, 2);
+      return make_pair(true, std::move(props));
+    }
+    return make_pair(false, std::move(props));
+  }
+
+  ~Swmm6InputCursor()
+  {
+    sqlite3_finalize(_stmt);
+  }
+
 };
 
 class Swmm6Input: public Input
@@ -103,92 +123,25 @@ public:
     sqlite3_close_v2(_db);
   }
 
-  Swmm6InputScenarioCursor* openScenario(const char* scenario) override
+  Swmm6InputCursor* openNodeCursor(const char* scenario) override
   {
-    return new Swmm6InputScenarioCursor(_db, scenario);
+    return new Swmm6InputCursor(_db, swmm6_object_type::NODE, scenario);
   }
-};
 
-class ExtensionInputObjectCursor: public InputObjectCursor
-{
-  swmm6_input_cursor* _cursor;
-  swmm6_io_module* _methods;
-public:
-  ExtensionInputObjectCursor(swmm6_input_cursor* cursor): _cursor(cursor), _methods(cursor->pInp->io_methods) {}
-  ~ExtensionInputObjectCursor()
-  {
-    _methods->xCloseCursor(_cursor);
-  }
-  bool next() override
-  {
-    return _methods->xCursorNext(_cursor);
-  }
-  int readInt(int col) override
-  {
-    return _methods->xReadInt(_cursor, col);
-  }
-  double readDouble(int col) override
-  {
-    return _methods->xReadDouble(_cursor, col);
-  }
-  const std::string readText(int col) override
-  {
-    return _methods->xReadText(_cursor, col);
-  }
-};
 
-class ExtensionInputScenarioCursor: public InputScenarioCursor
-{
-  swmm6_scenario_cursor* _scn_cursor;
-  swmm6_io_module* _methods;
-
-public:
-  ExtensionInputScenarioCursor(swmm6_scenario_cursor* scn_cursor):
-    _scn_cursor(scn_cursor),
-    _methods(scn_cursor->pInp->io_methods) {}
-
-  bool next() override
+  Swmm6InputObjectReader* openReader(const char* kind, ParamDefPack& params) override
   {
-    int rc = _methods->xScenarioNext(_scn_cursor);
-    switch (rc) {
-      case SWMM_NEXT: return true;
-      case SWMM_DONE: return false;
-      default: throw IoError("Scenario::next", rc);
+    sqlite3_stmt* stmt;
+    string query = "SELECT uid ";
+    for(auto& param : params) {
+      query += ", " + param.param_name;
     }
-  }
-
-  ExtensionInputObjectCursor* openObjectCursor() override
-  {
-    swmm6_input_cursor* cursor;
-    int rc = _methods->xOpenCursor(_scn_cursor, &cursor);
+    query += " FROM " + string{kind};
+    int rc = sqlite3_prepare_v2(_db, query.c_str(), -1, &stmt, NULL);
     if(rc) {
-      throw IoError("Error opening cursor", rc);
+      throw IoError(sqlite3_errmsg(_db));
     }
-    return new ExtensionInputObjectCursor(cursor);
-  }
-};
-
-class ExtensionInput: public Input
-{
-  swmm6_input* _input;
-  swmm6_io_module* _methods;
-
-public:
-  ExtensionInput(swmm6_input* input): _input(input), _methods(input->io_methods) {}
-
-  ~ExtensionInput()
-  {
-    _methods->xCloseInput(_input);
-  }
-
-  ExtensionInputScenarioCursor* openScenario(const char* scenario) override
-  {
-    swmm6_scenario_cursor* scn_cursor;
-    int rc = _methods->xOpenScenario(scenario, _input, &scn_cursor);
-    if(rc) {
-      throw IoError("Error opening scneario: " + string{scenario}, rc);
-    }
-    return new ExtensionInputScenarioCursor(scn_cursor);
+    return new Swmm6InputObjectReader(stmt, params);
   }
 };
 
@@ -202,30 +155,8 @@ Input* Input::open(const char* sInpName, const swmm6_io_module* input_module)
   if(rc) {
     throw IoError("Unable to open", rc);
   }
-  return new ExtensionInput(pInp);
-}
-
-swmm6_input_cursor* InputObjectCursor::as_extension()
-{
-  return reinterpret_cast<swmm6_input_cursor*>(this);
-}
-
-template<>
-int InputObjectCursor::read(int col)
-{
-  return readInt(col);
-}
-
-template<>
-double InputObjectCursor::read(int col)
-{
-  return readDouble(col);
-}
-
-template<>
-const std::string InputObjectCursor::read(int col)
-{
-  return readText(col);
+  throw NotImplementedError("ExtensionInput");
+  //return new ExtensionInput(pInp);
 }
 
 } // namespace swmm

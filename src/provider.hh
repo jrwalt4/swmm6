@@ -24,6 +24,8 @@ struct ParamDef
         param_type(ptype) {}
 };
 
+using ParamDefPack = std::vector<ParamDef>;
+
 struct ParamPack
 {
   std::vector<std::variant<
@@ -55,7 +57,7 @@ struct ParamPack
 struct ProviderBase
 {
     std::string name;
-    std::vector<ParamDef> params;
+    ParamDefPack params;
 
     ProviderBase(const char* prv_name, int n_params): name(std::string{prv_name}), params(n_params) {}
     ProviderBase(const char* prv_name, std::initializer_list<ParamDef> def_list):

@@ -22,22 +22,16 @@ struct InputObjectReaderProps
 struct InputObjectReader
 {
     virtual ~InputObjectReader() = default;
-    virtual bool next(swmm6_uid uid) = 0;
-    virtual int readInt(int col) = 0;
-    virtual double readDouble(int col) = 0;
-    virtual const std::string readText(int col) = 0;
+    virtual bool next() = 0;
 
     virtual int readParams(ParamPack& values) = 0;
-
-    template <typename T>
-    T read(int col);
 };
 
 struct InputObjectConstructorProps
 {
     swmm6_uid uid;
-    const char* name;
-    const char* kind;
+    std::string name;
+    std::string kind;
 };
 
 struct InputCursor
@@ -48,10 +42,10 @@ struct InputCursor
 struct Input
 {
     virtual ~Input() = default;
-    virtual InputCursor openNodeCursor(const char* scenario) = 0;
-    virtual InputCursor openLinkCursor(const char* scenario) = 0;
+    virtual InputCursor* openNodeCursor(const char* scenario) = 0;
+    //virtual InputCursor* openLinkCursor(const char* scenario) = 0;
 
-    virtual InputObjectReader openReader(const char* kind) = 0;
+    virtual InputObjectReader* openReader(const char* kind, ParamDefPack& params) = 0;
 
     static Input* open(const char* input, const swmm6_io_module* input_module);
 };
