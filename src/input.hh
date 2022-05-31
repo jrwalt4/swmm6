@@ -3,37 +3,55 @@
 
 #include "swmm6_int.hh"
 
+#include "provider.hh"
+
 #include <string>
+#include <tuple>
 #include <variant>
 
 namespace swmm
 {
 
-struct InputObjectCursor
+struct InputObjectReaderProps
 {
-    std::string provider;
-    virtual ~InputObjectCursor() = default;
-    virtual bool next() = 0;
+    swmm6_uid uid;
+    const char* name;
+    const char* kind;
+};
+
+struct InputObjectReader
+{
+    virtual ~InputObjectReader() = default;
+    virtual bool next(swmm6_uid uid) = 0;
     virtual int readInt(int col) = 0;
     virtual double readDouble(int col) = 0;
     virtual const std::string readText(int col) = 0;
 
-    swmm6_input_cursor* as_extension();
+    virtual int readParams(ParamPack& values) = 0;
 
     template <typename T>
     T read(int col);
 };
 
-struct InputScenarioCursor
+struct InputObjectConstructorProps
 {
-    virtual bool next() = 0;
-    virtual InputObjectCursor* openObjectCursor() = 0;
+    swmm6_uid uid;
+    const char* name;
+    const char* kind;
+};
+
+struct InputCursor
+{
+    virtual std::pair<bool, InputObjectConstructorProps> next() = 0;
 };
 
 struct Input
 {
     virtual ~Input() = default;
-    virtual InputScenarioCursor* openScenario(const char* scenario) = 0;
+    virtual InputCursor openNodeCursor(const char* scenario) = 0;
+    virtual InputCursor openLinkCursor(const char* scenario) = 0;
+
+    virtual InputObjectReader openReader(const char* kind) = 0;
 
     static Input* open(const char* input, const swmm6_io_module* input_module);
 };

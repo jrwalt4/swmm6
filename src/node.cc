@@ -29,11 +29,11 @@ public:
     {
       return new JunctionNode(uid, name);
     }
-    void read_params(Object& obj, std::vector<ParamValue>& values) override
+    void read_params(Object& obj, ParamPack& values) override
     {
       JunctionNode& jxn = dynamic_cast<JunctionNode&>(obj);
-      jxn._invert = values[0].as_real();
-      jxn._rim = values[1].as_real();
+      jxn._invert = values.get_real(0);
+      jxn._rim = values.get_real(1);
     }
   };
 
@@ -99,5 +99,6 @@ int swmm6_create_node_module(swmm6* prj, swmm6_node_module* mod)
     swmm::ExtensionNode::Provider& prv = (*node).second;
     return swmm::registerProvider(*prj, prv);
   }
+  return SWMM_ERROR;
 }
 

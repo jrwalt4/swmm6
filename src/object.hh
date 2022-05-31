@@ -11,8 +11,6 @@
 
 #include "swmm6_int.hh"
 
-#include "input.hh"
-
 #include <string>
 #include <utility>
 

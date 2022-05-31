@@ -47,11 +47,11 @@ typedef struct swmm6_param_def
   swmm6_param_type eType;
 } swmm6_param_def;
 
-typedef struct swmm6_param_value swmm6_param_value;
+typedef struct swmm6_param_pack swmm6_param_pack;
 
-int swmm6_param_int(swmm6_param_value*, int col);
-double swmm6_param_real(swmm6_param_value*, int col);
-const char* swmm6_param_text(swmm6_param_value*, int col);
+int swmm6_param_int(swmm6_param_pack*, int col);
+double swmm6_param_real(swmm6_param_pack*, int col);
+const char* swmm6_param_text(swmm6_param_pack*, int col);
 
 typedef struct swmm6_ext_module
 {
@@ -60,7 +60,7 @@ typedef struct swmm6_ext_module
   swmm6_object_type eType;
   swmm6_ext_object* (*xCreateObject)(swmm6_uid uid, const char* name);
   int (*xDestroy)(swmm6_ext_object* obj);
-  int (*xReadParams)(swmm6_ext_object* obj, swmm6_param_value vParams[]);
+  int (*xReadParams)(swmm6_ext_object* obj, swmm6_param_pack* vParams);
   int nParams;
   swmm6_param_def* vParams;
 } swmm6_ext_module;

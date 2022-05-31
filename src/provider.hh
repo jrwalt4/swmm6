@@ -3,7 +3,6 @@
 
 #include "swmm6_int.hh"
 
-#include "input.hh"
 #include "object.hh"
 
 #include <string>
@@ -25,20 +24,32 @@ struct ParamDef
         param_type(ptype) {}
 };
 
-class ParamValue
+struct ParamPack
 {
-    ParamDef _def;
-    std::variant<
-        swmm6_uid,
+  std::vector<std::variant<
         int,
         double,
         std::string
-    > _value;
+    >> _values;
 
-public:
-    const std::string& as_text() const;
-    int as_int() const;
-    double as_real() const;
+  int length() const
+  {
+    return _values.size();
+  }
+
+  const std::string& get_text(int col) const;
+  int get_int(int col) const;
+  double get_real(int col) const;
+
+  bool set_text(const char* val, int col);
+  bool set_int(int val, int col);
+  bool set_real(double val, int col);
+
+  operator swmm6_param_pack*()
+  {
+    return reinterpret_cast<swmm6_param_pack*>(this);
+  }
+
 };
 
 struct ProviderBase
@@ -53,7 +64,7 @@ struct ProviderBase
 
 
     virtual Object* create_object(swmm6_uid uid, const char* name) = 0;
-    virtual void read_params(Object& obj, std::vector<ParamValue>& values) = 0;
+    virtual void read_params(Object& obj, ParamPack& values) = 0;
 };
 
 class ExtensionProvider: public ProviderBase
@@ -69,10 +80,10 @@ public:
       }
     }
 
-  void read_params(Object& obj, std::vector<ParamValue>& values) override
+  void read_params(Object& obj, ParamPack& values) override
   {
     ExtensionObject& ext = dynamic_cast<ExtensionObject&>(obj);
-    _module->xReadParams(ext._obj, reinterpret_cast<swmm6_param_value*>(values.data()));
+    _module->xReadParams(ext._obj, values);
   }
 };
 
