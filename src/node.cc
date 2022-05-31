@@ -48,32 +48,6 @@ public:
   }
 };
 
-class ExtensionNode: public ExtensionObject, public Node
-{
-public:
-  using ExtensionObject::ExtensionObject;
-
-  double get_depth() override
-  {
-    return ((swmm6_node_module*)_module)->xGetDepth((swmm6_ext_node*) _obj);
-  }
-
-  double get_invert() override
-  {
-    return ((swmm6_node_module*)_module)->xGetInvert((swmm6_ext_node*) _obj);
-  }
-
-  struct Provider: public ExtensionProvider
-  {
-    Provider(swmm6_node_module* mod): ExtensionProvider((swmm6_ext_module*) mod) {}
-
-    Object* create_object(swmm6_uid uid, const char* name) override
-    {
-      return new ExtensionNode(((swmm6_ext_module*)_module)->xCreateObject(uid, name));
-    }
-  };
-};
-
 static JunctionNode::Provider junctionProvider;
 
 int createBuiltinNodeProviders(swmm6& prj)
@@ -82,23 +56,3 @@ int createBuiltinNodeProviders(swmm6& prj)
 }
 
 } // namespace swmm
-
-#include <unordered_map>
-#include <utility>
-
-static std::unordered_map<std::string, swmm::ExtensionNode::Provider> nodeExtProviders;
-
-int swmm6_create_node_module(swmm6* prj, swmm6_node_module* mod)
-{
-  auto [node, success] = nodeExtProviders.emplace(
-    std::piecewise_construct,
-    std::string{mod->xModule.sName},
-    mod
-  );
-  if(success) {
-    swmm::ExtensionNode::Provider& prv = (*node).second;
-    return swmm::registerProvider(*prj, prv);
-  }
-  return SWMM_ERROR;
-}
-

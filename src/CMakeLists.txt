@@ -2,15 +2,14 @@
 add_library(swmm6 SHARED
   swmm6.cc
   swmm6_int.hh
+  swmm6_ext.cc
 
   error.cc
   error.hh
-  extension.cc
   input.cc
   input.hh
   node.cc
   node.hh
-  object.cc
   object.hh
   provider.cc
   provider.hh

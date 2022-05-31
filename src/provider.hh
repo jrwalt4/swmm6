@@ -67,26 +67,6 @@ struct ProviderBase
     virtual void read_params(Object& obj, ParamPack& values) = 0;
 };
 
-class ExtensionProvider: public ProviderBase
-{
-protected:
-  swmm6_ext_module* _module;
-public:
-  ExtensionProvider(swmm6_ext_module* prv):
-    ProviderBase(prv->sName, prv->nParams),
-    _module(prv) {
-      for(int i = 0 ; i < prv->nParams ; i++) {
-        params[i] = prv->vParams[i];
-      }
-    }
-
-  void read_params(Object& obj, ParamPack& values) override
-  {
-    ExtensionObject& ext = dynamic_cast<ExtensionObject&>(obj);
-    _module->xReadParams(ext._obj, values);
-  }
-};
-
 } // namespace swmm
 
 #endif

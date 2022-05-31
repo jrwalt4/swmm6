@@ -29,15 +29,6 @@ struct Object
     virtual ~Object() = default;
 };
 
-struct ExtensionObject: public virtual Object
-{
-  swmm6_ext_object* _obj;
-  swmm6_ext_module* _module;
-  ExtensionObject(swmm6_ext_object* obj): _obj(obj), _module(obj->mod) {}
-
-  ~ExtensionObject();
-};
-
 }
 
 #endif // SWMM_OBJECT_H
