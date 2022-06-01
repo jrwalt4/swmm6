@@ -79,7 +79,6 @@ static std::unordered_map<std::string, ExtensionNode::Provider> nodeExtProviders
 int swmm6_create_node_module(swmm6* prj, swmm6_node_module* mod)
 {
   auto [node, success] = nodeExtProviders.emplace(
-    std::piecewise_construct,
     std::string{mod->xModule.sName},
     mod
   );

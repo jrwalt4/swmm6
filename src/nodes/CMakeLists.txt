@@ -1,7 +1,7 @@
 
-add_library(swmm6node OBJECT
+add_library(swmm6nodes OBJECT
     junction.cc
     junction.hh
 )
 
-target_link_libraries(swmm6node PUBLIC swmm6iface)
+target_link_libraries(swmm6nodes PUBLIC swmm6iface)

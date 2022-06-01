@@ -37,6 +37,7 @@ struct InputObjectConstructorProps
 struct InputCursor
 {
     virtual std::pair<bool, InputObjectConstructorProps> next() = 0;
+    virtual ~InputCursor() = default;
 };
 
 struct Input

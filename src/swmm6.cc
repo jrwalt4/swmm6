@@ -37,12 +37,22 @@ public:
     return std::get<1>(_providers.insert( { prv.name, prv }));
   }
 
+  ProviderBase& find_provider(string& prv_name)
+  {
+    return (*_providers.find(prv_name)).second;
+  }
+
 };
+
+namespace swmm
+{
 
 bool registerProvider(swmm6& prj, ProviderBase& prv)
 {
   return prj.register_provider(prv);
 }
+
+} // namespace swmm
 
 int swmm6_open(const char* input, swmm6** pPrj)
 {
@@ -77,53 +87,29 @@ int swmm6_open_with(const char* inpName, swmm6** pPrj, const swmm6_io_module* io
 int swmm6_open_simulation(const char* scenario, swmm6* prj, swmm6_simulation** pSim, char** zErr)
 {
   (void) zErr;
-  int rc;
   Input& inp = prj->get_input();
   Simulation* sim = new Simulation(*prj, scenario);
 
   if(sim == nullptr) {
-    return SWMM_NOMEM
+    return SWMM_NOMEM;
   }
 
-  rc = inputDescribeScenario(scenario, inp, &info);
-  if(rc) {
-    goto open_scenario_fail;
-    /*
-    simulationClose(sim);
-    *pSim = NULL;
-    return rc;
-    */
-  }
-  puts("Reading scenario");
-  for(int i = 0 ; i < info->nQueries ; i++) {
-    prv = swmmFindProvider(prj, info->aProviders[i]);
-    if(prv == NULL) {
-      rc = SWMM_NOTFOUND;
-      goto cursor_fail;
-    }
-    rc = inputOpenCursor(inp, info->aQueries[i], info, &cur);
-    if(rc) {
-      goto cursor_fail;
-    }
-    rc = swmmReadCursor(prj, cur, prv, sim);
-    // close before next iteration, and before failure check
-    inputCloseCursor(cur);
-    if(rc) {
-      goto read_cursor_fail;
+  auto nodeCursor = unique_ptr<InputCursor>(inp.openNodeCursor(scenario));
+  auto result = nodeCursor->next();
+  while(result.first) {
+    auto props = result.second;
+    ProviderBase& prv = prj->find_provider(props.name);
+    Node* node = dynamic_cast<Node*>(prv.create_object(props.uid, props.name.c_str()));
+    bool success = sim->add_node(node);
+    if(success) {
+      result = nodeCursor->next();
+    } else {
+      delete sim;
+      return SWMM_ERROR;
     }
   }
   *pSim = (swmm6_simulation*) sim;
   return SWMM_OK;
-
-read_cursor_fail:
-  inputCloseCursor(cur);
-cursor_fail:
-  inputReleaseScenario(inp, info);
-open_scenario_fail:
-  simulationClose(sim);
-  *pSim = NULL;
-open_simulation_fail:
-  return rc;
 }
 
 int swmm6_close(swmm6* prj)
