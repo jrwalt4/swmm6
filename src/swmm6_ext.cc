@@ -11,11 +11,15 @@
 namespace swmm
 {
 
-struct ExtensionObject: public virtual Object
+template<class OBJ>
+struct ExtensionObject: public OBJ
 {
   swmm6_ext_object* _obj;
   swmm6_ext_module* _module;
-  ExtensionObject(swmm6_ext_object* obj): _obj(obj), _module(obj->mod) {}
+  ExtensionObject(swmm6_ext_object* obj):
+    OBJ(obj->uid, obj->name),
+    _obj(obj),
+    _module(obj->mod) {}
 
   ~ExtensionObject()
   {
@@ -23,6 +27,7 @@ struct ExtensionObject: public virtual Object
   }
 };
 
+template<class OBJ>
 class ExtensionProvider: public ProviderBase
 {
 protected:
@@ -38,12 +43,12 @@ public:
 
   void read_params(Object& obj, ParamPack& values) override
   {
-    ExtensionObject& ext = dynamic_cast<ExtensionObject&>(obj);
+    ExtensionObject<OBJ>& ext = dynamic_cast<ExtensionObject<OBJ>&>(obj);
     _module->xReadParams(ext._obj, values);
   }
 };
 
-class ExtensionNode: public ExtensionObject, public Node
+class ExtensionNode: public ExtensionObject<Node>
 {
 public:
   using ExtensionObject::ExtensionObject;
@@ -58,7 +63,7 @@ public:
     return ((swmm6_node_module*)_module)->xGetInvert((swmm6_ext_node*) _obj);
   }
 
-  struct Provider: public ExtensionProvider
+  struct Provider: public ExtensionProvider<Node>
   {
     Provider(swmm6_node_module* mod): ExtensionProvider((swmm6_ext_module*) mod) {}
 

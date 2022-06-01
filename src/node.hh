@@ -16,7 +16,7 @@
 namespace swmm
 {
 
-struct Node: public virtual Object
+struct Node: public Object
 {
     using Object::Object;
 

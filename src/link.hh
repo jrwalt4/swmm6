@@ -14,7 +14,7 @@
 namespace swmm
 {
 
-struct Link: public virtual Object
+struct Link: public Object
 {
 public:
     virtual double get_length() = 0;
