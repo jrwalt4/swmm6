@@ -39,7 +39,16 @@ public:
 
   ProviderBase& find_provider(string& prv_name)
   {
-    return (*_providers.find(prv_name)).second;
+    try {
+      return _providers.at(prv_name);
+    } catch (std::out_of_range ex) {
+      throw NoProviderError(prv_name);
+    }
+  }
+
+  Simulation& create_scenario(const char* scenario)
+  {
+    return *(_simulations.emplace(scenario, make_unique<Simulation>(*this, scenario)).first->second);
   }
 
 };
@@ -84,29 +93,53 @@ int swmm6_open_with(const char* inpName, swmm6** pPrj, const swmm6_io_module* io
   return SWMM_OK;
 }
 
-int swmm6_open_simulation(const char* scenario, swmm6* prj, swmm6_simulation** pSim, char** zErr)
+int readNodes(swmm6& prj, Simulation& sim, Input& inp)
 {
-  (void) zErr;
-  Input& inp = prj->get_input();
-  Simulation* sim = new Simulation(*prj, scenario);
-
-  if(sim == nullptr) {
-    return SWMM_NOMEM;
-  }
-
+  const string& scenario = sim.scenario();
   auto nodeCursor = unique_ptr<InputCursor>(inp.openNodeCursor(scenario));
   auto result = nodeCursor->next();
+  unordered_map<string, ProviderBase&> providers_used;
   while(result.first) {
     auto props = result.second;
-    ProviderBase& prv = prj->find_provider(props.name);
+    ProviderBase& prv = prj.find_provider(props.name);
+    providers_used.insert({prv.name, prv});
     Node* node = dynamic_cast<Node*>(prv.create_object(props.uid, props.name.c_str()));
-    bool success = sim->add_node(node);
+    bool success = sim.add_node(node);
     if(success) {
       result = nodeCursor->next();
     } else {
-      delete sim;
       return SWMM_ERROR;
     }
+  }
+  for(auto [kind, prv] : providers_used) {
+    auto reader = unique_ptr<InputObjectReader>(inp.openReader(kind, scenario, prv.params));
+    while(reader->next()) {
+      ParamPack params(prv.params);
+      swmm6_uid uid = reader->get_uid();
+      Node& node = sim.get_node(uid);
+      int rc = reader->readParams(params);
+      if(rc) {
+        return rc;
+      }
+      rc = prv.read_params(node, params);
+      if(rc) {
+        return rc;
+      }
+    }
+  }
+  return SWMM_OK;
+}
+
+int swmm6_open_simulation(const char* scenario, swmm6* prj, swmm6_simulation** pSim, char** zErr)
+{
+  (void) zErr;
+  int rc;
+  Input& inp = prj->get_input();
+  Simulation& sim = prj->create_scenario(scenario);
+
+  rc = readNodes(*prj, sim, inp);
+  if(rc) {
+    return SWMM_ERROR;
   }
   *pSim = (swmm6_simulation*) sim;
   return SWMM_OK;

@@ -29,7 +29,7 @@ public:
     Provider();
 
     JunctionNode* create_object(swmm6_uid uid, const char* name) override;
-    void read_params(Object& obj, ParamPack& values) override;
+    int read_params(Object& obj, ParamPack& values) override;
   };
 
   //friend Provider;

@@ -1,5 +1,9 @@
 #include "junction.hh"
 
+#include <exception>
+
+using namespace std;
+
 namespace swmm
 {
 
@@ -26,11 +30,16 @@ JunctionNode* JunctionNode::Provider::create_object(swmm6_uid uid, const char* n
     return new JunctionNode(uid, name);
 }
 
-void JunctionNode::Provider::read_params(Object& obj, ParamPack& values)
+int JunctionNode::Provider::read_params(Object& obj, ParamPack& values)
 {
-    JunctionNode& jxn = dynamic_cast<JunctionNode&>(obj);
-    jxn._invert = values.get_real(0);
-    jxn._rim = values.get_real(1);
+    try {
+        JunctionNode& jxn = dynamic_cast<JunctionNode&>(obj);
+        jxn._invert = values.get_real(0);
+        jxn._rim = values.get_real(1);
+    } catch (exception ex) {
+        return SWMM_ERROR;
+    }
+    return SWMM_OK;
 }
 
 } // namespace swmm

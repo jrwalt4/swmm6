@@ -21,4 +21,24 @@ int Error::code() const
     return _code;
 }
 
+const char* Error::what() const noexcept
+{
+    return "Error";
+}
+
+const char* IoError::what() const noexcept
+{
+    return ("IoError: " + _msg).c_str();
+}
+
+const char* NotImplementedError::what() const noexcept
+{
+    return ("Method `" + _method + "` not implemented").c_str();
+}
+
+const char* NoProviderError::what() const noexcept
+{
+    return ("Provider `" + _provider + "` not found").c_str();
+}
+
 } // namespae swmm

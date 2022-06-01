@@ -6,6 +6,7 @@
 #include "provider.hh"
 
 #include <string>
+#include <string_view>
 #include <tuple>
 #include <variant>
 
@@ -15,15 +16,15 @@ namespace swmm
 struct InputObjectReaderProps
 {
     swmm6_uid uid;
-    const char* name;
-    const char* kind;
+    std::string name;
+    std::string kind;
 };
 
 struct InputObjectReader
 {
     virtual ~InputObjectReader() = default;
     virtual bool next() = 0;
-
+    virtual swmm6_uid get_uid() = 0;
     virtual int readParams(ParamPack& values) = 0;
 };
 
@@ -43,12 +44,12 @@ struct InputCursor
 struct Input
 {
     virtual ~Input() = default;
-    virtual InputCursor* openNodeCursor(const char* scenario) = 0;
+    virtual InputCursor* openNodeCursor(std::string_view scenario) = 0;
     //virtual InputCursor* openLinkCursor(const char* scenario) = 0;
 
-    virtual InputObjectReader* openReader(const char* kind, ParamDefPack& params) = 0;
+    virtual InputObjectReader* openReader(std::string_view kind, std::string_view scenario, ParamDefPack& params) = 0;
 
-    static Input* open(const char* input, const swmm6_io_module* input_module);
+    static Input* open(std::string_view input, const swmm6_io_module* input_module);
 };
 
 } // namespace swmm

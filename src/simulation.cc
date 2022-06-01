@@ -3,6 +3,11 @@
 namespace swmm
 {
 
+const std::string& Simulation::scenario() const
+{
+  return _scenario;
+}
+
 Node& Simulation::get_node(swmm6_uid node_uid) const
 {
   return *_nodes.at(node_uid);

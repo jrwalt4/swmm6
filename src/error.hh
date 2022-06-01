@@ -46,6 +46,7 @@ public:
 
     ErrorCode errcode() const;
     int code() const;
+    const char* what() const noexcept override;
 };
 
 class IoError: public Error
@@ -53,6 +54,7 @@ class IoError: public Error
     std::string _msg;
 public:
     IoError(std::string msg, int code = SWMM_ERROR): Error(code), _msg(std::move(msg)) {}
+    const char* what() const noexcept override;
 };
 
 class NotImplementedError: public Error
@@ -60,6 +62,15 @@ class NotImplementedError: public Error
     std::string _method;
 public:
     NotImplementedError(std::string method): Error(SWMM_NOIMPL), _method(std::move(method)) {}
+    const char* what() const noexcept override;
+};
+
+class NoProviderError: public Error
+{
+    std::string _provider;
+public:
+    NoProviderError(std::string prv): Error(SWMM_NOPRV), _provider(std::move(prv)) {}
+    const char* what() const noexcept override;
 };
 
 }

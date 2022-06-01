@@ -44,6 +44,7 @@ public:
     return reinterpret_cast<swmm6_simulation*>(this);
   }
 
+  const std::string& scenario() const;
   Node& get_node(swmm6_uid node_uid) const;
   bool add_node(Node* node);
   Link& get_link(swmm6_uid link_uid) const;

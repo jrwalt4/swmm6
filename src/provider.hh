@@ -26,13 +26,19 @@ struct ParamDef
 
 using ParamDefPack = std::vector<ParamDef>;
 
-struct ParamPack
+class ParamPack
 {
-  std::vector<std::variant<
-        int,
-        double,
-        std::string
-    >> _values;
+  swmm6_uid uid;
+  typedef std::variant<
+      int,
+      double,
+      std::string
+    > value_type;
+   std::vector<value_type> _values;
+
+public:
+
+  ParamPack(ParamDefPack& param_def);
 
   int length() const
   {
@@ -66,7 +72,7 @@ struct ProviderBase
 
 
     virtual Object* create_object(swmm6_uid uid, const char* name) = 0;
-    virtual void read_params(Object& obj, ParamPack& values) = 0;
+    virtual int read_params(Object& obj, ParamPack& values) = 0;
 };
 
 } // namespace swmm

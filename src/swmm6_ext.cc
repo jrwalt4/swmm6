@@ -41,10 +41,10 @@ public:
       }
     }
 
-  void read_params(Object& obj, ParamPack& values) override
+  int read_params(Object& obj, ParamPack& values) override
   {
     ExtensionObject<OBJ>& ext = dynamic_cast<ExtensionObject<OBJ>&>(obj);
-    _module->xReadParams(ext._obj, values);
+    return _module->xReadParams(ext._obj, values);
   }
 };
 

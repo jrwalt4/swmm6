@@ -1,7 +1,32 @@
 #include "provider.hh"
 
+#include <algorithm>
+#include <iterator>
+
+using namespace std;
+
 namespace swmm
 {
+
+using ParamType = swmm6_param_type;
+
+ParamPack::ParamPack(ParamDefPack& param_def)
+{
+  transform(
+    param_def.begin(),
+    param_def.end(),
+    back_inserter(_values),
+    [](ParamDef& def) -> value_type {
+      switch(def.param_type) {
+        case ParamType::UID:
+        case ParamType::INT: return int();
+        case ParamType::REAL: return double();
+        case ParamType::TEXT: return "";
+        case ParamType::UNIT: return int();
+      }
+    }
+  );
+}
 
 const std::string& ParamPack::get_text(int col) const
 {
