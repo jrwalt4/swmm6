@@ -7,8 +7,7 @@
 
 #include <assert.h>
 #include <memory>
-#include <stdio.h>
-#include <stdlib.h>
+#include <iostream>
 #include <string>
 #include <unordered_map>
 
@@ -56,9 +55,9 @@ public:
 namespace swmm
 {
 
-bool registerProvider(swmm6& prj, ProviderBase& prv)
+int registerProvider(swmm6& prj, ProviderBase& prv)
 {
-  return prj.register_provider(prv);
+  return (prj.register_provider(prv)) ? SWMM_OK : SWMM_ERROR;
 }
 
 } // namespace swmm
@@ -77,6 +76,7 @@ int swmm6_open_with(const char* inpName, swmm6** pPrj, const swmm6_io_module* io
       return SWMM_ERROR;
     }
   } catch (IoError& err) {
+    cerr << err.what() << endl;
     return err.code();
   }
   swmm6* prj = new swmm6(inp);
@@ -95,53 +95,56 @@ int swmm6_open_with(const char* inpName, swmm6** pPrj, const swmm6_io_module* io
 
 int readNodes(swmm6& prj, Simulation& sim, Input& inp)
 {
+  int node_count = 0;
   const string& scenario = sim.scenario();
-  auto nodeCursor = unique_ptr<InputCursor>(inp.openNodeCursor(scenario));
-  auto result = nodeCursor->next();
+  unique_ptr<InputCursor> nodeCursor(inp.openNodeCursor(scenario));
+  InputObjectConstructorProps props;
   unordered_map<string, ProviderBase&> providers_used;
-  while(result.first) {
-    auto props = result.second;
-    ProviderBase& prv = prj.find_provider(props.name);
+  while(nodeCursor->next()) {
+    node_count++;
+    nodeCursor->read_props(props);
+    ProviderBase& prv = prj.find_provider(props.kind);
     providers_used.insert({prv.name, prv});
     Node* node = dynamic_cast<Node*>(prv.create_object(props.uid, props.name.c_str()));
     bool success = sim.add_node(node);
-    if(success) {
-      result = nodeCursor->next();
-    } else {
-      return SWMM_ERROR;
+    if(!success) {
+      throw Error("Error adding node");
     }
   }
   for(auto [kind, prv] : providers_used) {
-    auto reader = unique_ptr<InputObjectReader>(inp.openReader(kind, scenario, prv.params));
+    unique_ptr<InputObjectReader> reader(inp.openReader(kind, scenario, prv.params));
+    ParamPack params(prv.params);
     while(reader->next()) {
-      ParamPack params(prv.params);
       swmm6_uid uid = reader->get_uid();
       Node& node = sim.get_node(uid);
       int rc = reader->readParams(params);
       if(rc) {
-        return rc;
+        throw Error("Error reading params from input");
       }
       rc = prv.read_params(node, params);
       if(rc) {
-        return rc;
+        throw Error("Error reading params into object");
       }
     }
   }
-  return SWMM_OK;
+  return node_count;
 }
 
-int swmm6_open_simulation(const char* scenario, swmm6* prj, swmm6_simulation** pSim, char** zErr)
+int swmm6_open_simulation(const char* scenario, swmm6* prj, swmm6_simulation** pSim)
 {
-  (void) zErr;
-  int rc;
+  int count;
   Input& inp = prj->get_input();
   Simulation& sim = prj->create_scenario(scenario);
 
-  rc = readNodes(*prj, sim, inp);
-  if(rc) {
-    return SWMM_ERROR;
-  }
+  count = readNodes(*prj, sim, inp);
+  cout << "Read " << count << " Nodes" << endl;
   *pSim = (swmm6_simulation*) sim;
+  return SWMM_OK;
+}
+
+int swmm6_finish(swmm6_simulation* pSim)
+{
+  (void) pSim;
   return SWMM_OK;
 }
 

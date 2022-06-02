@@ -31,7 +31,7 @@ target_link_libraries(swmm6
 )
 
 add_executable(swmm6cli main.cc)
-set_target_properties(swmm6cli PROPERTIES OUTPUT_NAME main)
+set_target_properties(swmm6cli PROPERTIES OUTPUT_NAME swmm6)
 target_link_libraries(swmm6cli PUBLIC swmm6)
 
 add_test(NAME test-cli COMMAND swmm6cli ${CMAKE_SOURCE_DIR}/test/swmm6test.db)

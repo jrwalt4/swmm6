@@ -17,7 +17,7 @@ return vtable->method(args);
 namespace swmm
 {
 struct ProviderBase;
-bool registerProvider(swmm6& prj, ProviderBase& prv);
+int registerProvider(swmm6& prj, ProviderBase& prv);
 
 /**
  * Called by link module to load builtin links

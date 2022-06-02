@@ -37,7 +37,8 @@ struct InputObjectConstructorProps
 
 struct InputCursor
 {
-    virtual std::pair<bool, InputObjectConstructorProps> next() = 0;
+    virtual bool next() = 0;
+    virtual int read_props(InputObjectConstructorProps& props) = 0;
     virtual ~InputCursor() = default;
 };
 
@@ -49,7 +50,7 @@ struct Input
 
     virtual InputObjectReader* openReader(std::string_view kind, std::string_view scenario, ParamDefPack& params) = 0;
 
-    static Input* open(std::string_view input, const swmm6_io_module* input_module);
+    static Input* open(const char* input, const swmm6_io_module* input_module);
 };
 
 } // namespace swmm

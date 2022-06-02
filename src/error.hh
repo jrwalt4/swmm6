@@ -41,8 +41,10 @@ enum class ResultCode
 class Error: public std::exception
 {
     int _code;
+    std::string _msg;
 public:
-    Error(int code = SWMM_ERROR): _code(code) {}
+    Error(int code = SWMM_ERROR, std::string msg = ""): _code(code), _msg(std::move(msg)) {}
+    Error(std::string msg): Error(SWMM_ERROR, msg) {}
 
     ErrorCode errcode() const;
     int code() const;
@@ -51,26 +53,20 @@ public:
 
 class IoError: public Error
 {
-    std::string _msg;
 public:
-    IoError(std::string msg, int code = SWMM_ERROR): Error(code), _msg(std::move(msg)) {}
-    const char* what() const noexcept override;
+    IoError(std::string msg, int code = SWMM_ERROR): Error(code, msg) {}
 };
 
 class NotImplementedError: public Error
 {
-    std::string _method;
 public:
-    NotImplementedError(std::string method): Error(SWMM_NOIMPL), _method(std::move(method)) {}
-    const char* what() const noexcept override;
+    NotImplementedError(std::string method): Error(SWMM_NOIMPL, method + " not Implemented") {}
 };
 
 class NoProviderError: public Error
 {
-    std::string _provider;
 public:
-    NoProviderError(std::string prv): Error(SWMM_NOPRV), _provider(std::move(prv)) {}
-    const char* what() const noexcept override;
+    NoProviderError(std::string prv): Error(SWMM_NOPRV, "No Provider: "+prv) {}
 };
 
 }

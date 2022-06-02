@@ -76,33 +76,26 @@ class Swmm6InputCursor: public InputCursor
   sqlite3_stmt* _stmt;
 
 public:
-  Swmm6InputCursor(sqlite3* db, swmm6_object_type obj_type, string_view scenario)
+  Swmm6InputCursor(sqlite3_stmt* stmt): _stmt(stmt) {}
+
+  bool next() override
   {
-    (void) scenario;
-    const char* _query;
-    switch(obj_type) {
-      case swmm6_object_type::NODE:
-        _query = "SELECT uid, name, kind FROM JUNCTIONS;";
-      case swmm6_object_type::LINK:
-        _query = "SELECT uid, name, kind FROM CONDUITS";
+    int rc = sqlite3_step(_stmt);
+    if(rc == SQLITE_ROW) {
+      return true;
     }
-    int rc = sqlite3_prepare_v2(db, _query, -1, &_stmt, NULL);
-    if(rc) {
-      throw IoError("Error opening db", rc);
+    if(rc == SQLITE_DONE) {
+      return false;
     }
+    throw IoError(sqlite3_errmsg(sqlite3_db_handle(_stmt)));
   }
 
-  std::pair<bool, InputObjectConstructorProps> next() override
+  int read_props(InputObjectConstructorProps& props) override
   {
-    InputObjectConstructorProps props;
-    int rc = sqlite3_step(_stmt);
-    if(rc == SQLITE_DONE) {
-      props.uid = sqlite3_column_int(_stmt, 0);
-      props.name = (const char*)sqlite3_column_text(_stmt, 1);
-      props.kind = (const char*)sqlite3_column_text(_stmt, 2);
-      return make_pair(true, std::move(props));
-    }
-    return make_pair(false, std::move(props));
+    props.uid = sqlite3_column_int(_stmt, 0);
+    props.name = (const char*)sqlite3_column_text(_stmt, 1);
+    props.kind = (const char*)sqlite3_column_text(_stmt, 2);
+    return SWMM_OK;
   }
 
   ~Swmm6InputCursor()
@@ -112,13 +105,18 @@ public:
 
 };
 
+#define JUNCTION_TABLE "JUNCTION"
+
 class Swmm6Input: public Input
 {
   sqlite3* _db;
 public:
-  Swmm6Input(string_view dbName)
+  Swmm6Input(const char* dbName)
   {
-    sqlite3_open_v2(dbName.data(), &_db, SQLITE_READONLY, NULL);
+    int rc = sqlite3_open_v2(dbName, &_db, SQLITE_OPEN_READONLY, NULL);
+    if(rc) {
+      throw IoError(sqlite3_errmsg(_db));
+    }
   }
 
   ~Swmm6Input()
@@ -128,7 +126,14 @@ public:
 
   Swmm6InputCursor* openNodeCursor(string_view scenario) override
   {
-    return new Swmm6InputCursor(_db, swmm6_object_type::NODE, scenario);
+    (void) scenario;
+    sqlite3_stmt* stmt;
+    const char* query = "SELECT uid, name, kind FROM " JUNCTION_TABLE ";";
+    int rc = sqlite3_prepare_v2(_db, query, -1, &stmt, NULL);
+    if(rc) {
+      throw IoError(sqlite3_errmsg(_db));
+    }
+    return new Swmm6InputCursor(stmt);
   }
 
 
@@ -150,13 +155,13 @@ public:
   }
 };
 
-Input* Input::open(string_view sInpName, const swmm6_io_module* input_module)
+Input* Input::open(const char* sInpName, const swmm6_io_module* input_module)
 {
   if(input_module == NULL) {
     return new Swmm6Input(sInpName);
   }
   swmm6_input* pInp;
-  int rc = input_module->xOpenInput(sInpName.data(), &pInp);
+  int rc = input_module->xOpenInput(sInpName, &pInp);
   if(rc) {
     throw IoError("Unable to open", rc);
   }

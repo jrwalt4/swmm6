@@ -46,41 +46,25 @@ double ParamPack::get_real(int col) const
 
 bool ParamPack::set_text(const char* val, int col)
 {
-  try {
-    std::string& s_val = _values[col].emplace<std::string>(val);
-    if(s_val.compare(val) == 0) {
-      return true;
-    }
-    return false;
-  } catch (std::exception& ex) {
-
+  std::string& s_val = _values[col].emplace<std::string>(val);
+  if(s_val.compare(val) == 0) {
+    return true;
   }
   return false;
 }
 bool ParamPack::set_int(int val, int col)
 {
-  try {
-    int i_val = _values[col].emplace<int>(val);
-    if(i_val == val) {
-      return true;
-    }
-    return false;
-  } catch (std::exception& ex) {
-
+  int i_val = _values[col].emplace<int>(val);
+  if(i_val == val) {
+    return true;
   }
   return false;
 }
 bool ParamPack::set_real(double val, int col)
 {
-
-  try {
-    int d_val = _values[col].emplace<double>(val);
-    if(d_val == val) {
-      return true;
-    }
-    return false;
-  } catch (std::exception& ex) {
-
+  double d_val = _values[col].emplace<double>(val);
+  if(d_val == val) {
+    return true;
   }
   return false;
 }
